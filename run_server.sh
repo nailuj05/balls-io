@@ -1,5 +1,5 @@
 #!/bin/bash
 echo "Rebuilding Server"
-gcc server/server.c -o server/server
+gcc server/server.c -Iinclude -o server/server
 echo "Starting Server"
 ./server/server

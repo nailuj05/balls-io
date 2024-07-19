@@ -1,7 +1,51 @@
+#include "net.h"
+#include <arpa/inet.h>
 #include <raylib.h>
-#include <stdlib.h>
+#include <signal.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+#define SERVER_ADDR "127.0.0.1"
 
 int main(int argc, char *argv[]) {
+  sock = 0;
+  struct sockaddr_in serv_addr;
+  char *message = "{Hello, server!}";
+  char buffer[1024] = {0};
+
+  // Create socket
+  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    perror("Socket creation error");
+    return -1;
+  }
+
+  signal(SIGINT, handle_sigint);
+
+  serv_addr.sin_family = AF_INET;
+  serv_addr.sin_port = htons(PORT);
+
+  if (inet_pton(AF_INET, SERVER_ADDR, &serv_addr.sin_addr) <= 0) {
+    perror("Invalid address/ Address not supported");
+    return -1;
+  }
+
+  // Connect to server
+  if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
+    perror("Connection Failed");
+    return -1;
+  }
+
+  // Send message to server
+  send(sock, message, strlen(message), 0);
+  printf("Message sent: %s\n", message);
+
+  // Read response from server
+  int valread = read(sock, buffer, 1024);
+  printf("Response from server: %s\n", buffer);
+
+  return 0;
+
   const int screenWidth = 800;
   const int screenHeight = 450;
 
