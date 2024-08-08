@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #define PORT 6969
+#define MAXPLAYERS 16
 
 int sock = 0;
 

@@ -2,32 +2,69 @@
 #include <arpa/inet.h>
 #include <signal.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #define BUFFER 256
 
-void handle_request(const char *request) {}
+typedef struct {
+  char id;
+  int x;
+  int y;
+  int r;
+} PlayerHandle;
 
-void extract_content(const char *str, char *output) {
-  const char *start = strchr(str, '{');
-  const char *end = strchr(str, '}');
+PlayerHandle **players;
 
-  if (start && end && end > start) {
-    size_t length = end - start - 1;
-    strncpy(output, start + 1, length);
-    output[length] = '\0'; // Null-terminate the output string
-  } else {
-    // Handle cases where curly brackets are not found
-    output[0] = '\0';
+void server_start() {
+  players = (PlayerHandle **)malloc(MAXPLAYERS * sizeof(PlayerHandle *));
+}
+
+int get_free_id() {
+  for (size_t i = 0; i < MAXPLAYERS; ++i) {
+    if (players[i] == NULL)
+      return i;
+  }
+  return -1;
+}
+
+void handle_request(const char *request, int sock) {
+  char *response;
+  size_t responseSize = 0;
+
+  if (request[0] == 'C') {
+    // Generate and assign id
+    int id = get_free_id();
+    printf("New player: %i\n", id);
+
+    if (id != -1) {
+      // Allocate Player Handle
+      players[id] = (PlayerHandle *)malloc(sizeof(PlayerHandle));
+      players[id]->id = id;
+
+      response = (char *)malloc(sizeof(char));
+      response[0] = id;
+      responseSize = 1;
+    }
+  } else if (request[0] == 'D') {
+    printf("Player disconnect: %i\n", request[1]);
+    // Disconnect player and remove player handle
+    char id = request[1];
+    free(players[id]);
+    players[id] = NULL;
+  }
+
+  // Write
+  int valwrite = write(sock, response, responseSize);
+  if (valwrite < 0) {
+    perror("webserver (write)");
+    return;
   }
 }
 
 int main() {
   char readBuffer[BUFFER];
   int opt = 1;
-  char response[] = "beep boop i am a server :)\r\n";
 
   // Create socket
   sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -52,6 +89,8 @@ int main() {
   host_addr.sin_family = AF_INET;
   host_addr.sin_port = htons(PORT);
   host_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+  server_start();
 
   // client
   struct sockaddr_in client_addr;
@@ -80,7 +119,6 @@ int main() {
       perror("accept failed");
       continue;
     }
-    printf("connection accepted\n");
 
     // Read
     int valread = read(newsock, readBuffer, BUFFER);
@@ -89,16 +127,8 @@ int main() {
       continue;
     }
 
-    char request[BUFFER];
-    extract_content(readBuffer, request);
-    printf("%s\n", request);
+    handle_request(readBuffer, newsock);
 
-    // Write
-    int valwrite = write(newsock, response, strlen(response));
-    if (valwrite < 0) {
-      perror("webserver (write)");
-      continue;
-    }
     close(newsock);
   }
 
